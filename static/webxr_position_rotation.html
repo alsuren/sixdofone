@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebXR Position and Rotation Reporting</title>
+    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.min.js"></script>
+</head>
+<body>
+    <h1>WebXR Position and Rotation Reporting</h1>
+    <p>Touch the screen to start sending position and rotation data to the server.</p>
+    <script>
+        // Setup WebXR
+        if (navigator.xr) {
+            let xrSession = null;
+            let xrReferenceSpace = null;
+            let isTouching = false;
+            let sendDataInterval = null;
+
+            async function startXR() {
+                try {
+                    xrSession = await navigator.xr.requestSession('immersive-vr');
+                    xrReferenceSpace = await xrSession.requestReferenceSpace('local');
+                    xrSession.updateRenderState({ baseLayer: new XRWebGLLayer(xrSession, gl) });
+
+                    xrSession.addEventListener('selectstart', onTouchStart);
+                    xrSession.addEventListener('selectend', onTouchEnd);
+
+                    // Start sending data every 100ms when the session is active and user is touching the screen
+                    sendDataInterval = setInterval(() => {
+                        if (isTouching && xrSession) {
+                            xrSession.requestAnimationFrame(onXRFrame);
+                        }
+                    }, 100);
+                } catch (e) {
+                    console.error('Failed to start XR session:', e);
+                }
+            }
+
+            function onTouchStart() {
+                isTouching = true;
+            }
+
+            function onTouchEnd() {
+                isTouching = false;
+            }
+
+            function onXRFrame(time, frame) {
+                const pose = frame.getViewerPose(xrReferenceSpace);
+                if (pose) {
+                    const position = pose.transform.position;
+                    const orientation = pose.transform.orientation;
+                    const data = {
+                        position: { x: position.x, y: position.y, z: position.z },
+                        rotation: { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w }
+                    };
+
+                    // Send data to the server
+                    fetch('/api/report', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(data)
+                    }).catch(err => console.error('Error sending data:', err));
+                }
+            }
+
+            startXR();
+        } else {
+            console.log('WebXR not supported on this device.');
+        }
+    </script>
+</body>
+</html>
