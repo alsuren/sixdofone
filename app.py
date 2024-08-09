@@ -3,6 +3,7 @@ import logging
 from flask import Flask, request, jsonify, redirect
 import rerun as rr
 import numpy as np
+import cv2
 
 app = Flask(__name__)
 
@@ -58,6 +59,10 @@ def report_inner(data):
     # FIXME: find a way to set "visible time range" programmatically to give us a tail of previous
     # arrows (probably by setting a blueprint on startup). For now I've been setting it up manually.
     rr.log("phone", item)
+    ret, img = CAP.read()
+    if ret:
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        rr.log("webcam", rr.Image(rgb))
 
 
 # More chatgpt nonsense because I don't want to bother adding more dependencies
@@ -82,7 +87,9 @@ def quaternion_to_rotation_matrix(w, x, y, z):
 
 
 if __name__ == "__main__":
-    rr.init("sixdofone", spawn=True)
-
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
+    rr.init("sixdofone", spawn=True)
+    CAP = cv2.VideoCapture(0)
+
     app.run(host="0.0.0.0", port=8000, debug=True)

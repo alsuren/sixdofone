@@ -2,3 +2,4 @@
 # FIXME: if we're a library, the thing that reports to rerun-sdk should probably just be a demo?
 Flask==3.*
 rerun-sdk==0.17.0
+opencv-python==4.*
