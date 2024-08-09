@@ -1,3 +1,5 @@
+import logging
+
 from flask import Flask, send_from_directory, request, jsonify, redirect
 
 app = Flask(__name__)
@@ -19,4 +21,5 @@ def report():
 
 
 if __name__ == "__main__":
+    logging.getLogger("werkzeug").setLevel(logging.ERROR)
     app.run(host="0.0.0.0", port=8000)
