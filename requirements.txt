@@ -1,1 +1,4 @@
+# FIXME: relax these versions when we make ourselves into a library
+# FIXME: if we're a library, the thing that reports to rerun-sdk should probably just be a demo?
 Flask==2.3.3
+rerun-sdk==0.17.0

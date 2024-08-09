@@ -1,3 +1,5 @@
+# FIXME: make it so that `pip install .` actually works. This is just copy-pasta from chatgpt,
+# and I don't think it works.
 [build-system]
 requires = ["setuptools", "wheel"]
 build-backend = "setuptools.build_meta"
