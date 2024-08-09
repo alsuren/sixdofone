@@ -3,73 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebXR Position and Rotation Reporting</title>
-    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.min.js"></script>
+    <title>WebXR with Reporting</title>
+    <script src="https://immersive-web.github.io/webxr-samples/js/anchors.js"></script>
+    <script src="https://immersive-web.github.io/webxr-samples/js/webxr-samples-util.js"></script>
 </head>
 <body>
-    <h1>WebXR Position and Rotation Reporting</h1>
-    <p>Touch the screen to start sending position and rotation data to the server.</p>
-    <script>
-        // Setup WebXR
+<button id="xr-button">Enter VR</button>
+<div id="log">No XR device available.</div>
+
+<canvas id="c"></canvas>
+<script>
+  (function() {
+    const enterXrBtn = document.getElementById('xr-button');
+    const logDiv = document.getElementById('log');
+    const canvas = document.getElementById('c');
+
+    let xrSession = null;
+    let lastReportTime = 0;
+    let reporting = false;
+    
+    // Utility to log to the webpage
+    function logMessage(message) {
+        logDiv.innerText = message;
+    }
+
+    function onTouchStart() {
+        reporting = true;
+    }
+
+    function onTouchEnd() {
+        reporting = false;
+    }
+
+    async function initXR() {
         if (navigator.xr) {
-            let xrSession = null;
-            let xrReferenceSpace = null;
-            let isTouching = false;
-            let sendDataInterval = null;
-
-            async function startXR() {
-                try {
-                    xrSession = await navigator.xr.requestSession('immersive-vr');
-                    xrReferenceSpace = await xrSession.requestReferenceSpace('local');
-                    xrSession.updateRenderState({ baseLayer: new XRWebGLLayer(xrSession, gl) });
-
-                    xrSession.addEventListener('selectstart', onTouchStart);
-                    xrSession.addEventListener('selectend', onTouchEnd);
-
-                    // Start sending data every 100ms when the session is active and user is touching the screen
-                    sendDataInterval = setInterval(() => {
-                        if (isTouching && xrSession) {
-                            xrSession.requestAnimationFrame(onXRFrame);
-                        }
-                    }, 100);
-                } catch (e) {
-                    console.error('Failed to start XR session:', e);
-                }
+            enterXrBtn.disabled = false;
+            const xr = await navigator.xr.isSessionSupported('immersive-vr');
+            if (xr) {
+                enterXrBtn.addEventListener('click', onButtonClicked);
+                window.addEventListener('touchstart', onTouchStart);
+                window.addEventListener('touchend', onTouchEnd);
+            } else {
+                logMessage('VR not supported');
             }
-
-            function onTouchStart() {
-                isTouching = true;
-            }
-
-            function onTouchEnd() {
-                isTouching = false;
-            }
-
-            function onXRFrame(time, frame) {
-                const pose = frame.getViewerPose(xrReferenceSpace);
-                if (pose) {
-                    const position = pose.transform.position;
-                    const orientation = pose.transform.orientation;
-                    const data = {
-                        position: { x: position.x, y: position.y, z: position.z },
-                        rotation: { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w }
-                    };
-
-                    // Send data to the server
-                    fetch('/api/report', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(data)
-                    }).catch(err => console.error('Error sending data:', err));
-                }
-            }
-
-            startXR();
-        } else {
-            console.log('WebXR not supported on this device.');
         }
-    </script>
+    }
+
+    function onButtonClicked() {
+        if (!xrSession) {
+            navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
+        }
+    }
+
+    function onSessionStarted(session) {
+        xrSession = session;
+        session.addEventListener('end', onSessionEnded);
+        logMessage('VR session started');
+        
+        let gl = canvas.getContext('webgl', { xrCompatible: true });
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+        
+        session.requestReferenceSpace('local').then((refSpace) => {
+            session.requestAnimationFrame((t, frame) => onXRFrame(t, frame, refSpace));
+        });
+    }
+
+    function onSessionEnded(event) {
+        xrSession = null;
+        logMessage('VR session ended');
+    }
+
+    function onXRFrame(t, frame, refSpace) {
+        if (reporting && (t - lastReportTime > 100)) {
+            let pose = frame.getViewerPose(refSpace);
+            if (pose) {
+                const position = pose.transform.position;
+                const orientation = pose.transform.orientation;
+                sendDataToServer(position, orientation);
+                lastReportTime = t;
+            }
+        }
+        xrSession.requestAnimationFrame((t, frame) => onXRFrame(t, frame, refSpace));
+    }
+
+    function sendDataToServer(position, orientation) {
+        fetch('/api/report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                position: { x: position.x, y: position.y, z: position.z },
+                rotation: { x: orientation.x, y: orientation.y, z: orientation.z, w: orientation.w }
+            })
+        }).then(response => response.json())
+          .then(data => console.log('Data sent successfully:', data))
+          .catch(err => console.error('Error sending data:', err));
+    }
+
+    initXR();
+  })();
+</script>
 </body>
 </html>
