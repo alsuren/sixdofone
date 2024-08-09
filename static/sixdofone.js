@@ -248,7 +248,7 @@ function onXRFrame(t, frame) {
 
 // Initialize variables
 let lastSendTime = performance.now();
-const sendInterval = 10_000; // Time in milliseconds
+const sendInterval = 100; // Time in milliseconds
 
 function reportPoseIfNeeded(t, pose) {
     if (pose && (t - lastSendTime > sendInterval)) {
