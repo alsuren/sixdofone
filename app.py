@@ -1,12 +1,12 @@
-from flask import Flask, send_from_directory, request, jsonify
+from flask import Flask, send_from_directory, request, jsonify, redirect
 
-app = Flask(__name__, static_folder="static")
+app = Flask(__name__)
 
 
 # Route to serve the HTML file
 @app.route("/")
 def index():
-    return send_from_directory("static", "index.html")
+    return redirect("static/anchors.html")
 
 
 # API endpoint to receive the position and rotation data
