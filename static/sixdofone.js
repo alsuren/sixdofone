@@ -198,6 +198,9 @@ function onXRFrame(t, frame) {
         inlineViewerHelper.referenceSpace;
     let pose = frame.getViewerPose(xrRefSpace);
 
+
+    reportPoseIfNeeded(t, pose);
+
     // Update the position of all the anchored objects based on the currently reported positions of their anchors
     const tracked_anchors = frame.trackedAnchors;
     if (tracked_anchors) {
@@ -239,4 +242,32 @@ function onXRFrame(t, frame) {
     scene.drawXRFrame(frame, pose);
 
     scene.endFrame();
+}
+
+
+
+// Initialize variables
+let lastSendTime = performance.now();
+const sendInterval = 10_000; // Time in milliseconds
+
+function reportPoseIfNeeded(t, pose) {
+    if (pose && (t - lastSendTime > sendInterval)) {
+        sendData(pose);
+        lastSendTime = t;
+    }
+}
+
+function sendData(pose) {
+    fetch('/api/report', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            position: { x: pose.transform.position.x, y: pose.transform.position.y, z: pose.transform.position.z },
+            orientation: { x: pose.transform.orientation.x, y: pose.transform.orientation.y, z: pose.transform.orientation.z, w: pose.transform.orientation.w }
+        })
+    }).then(response => response.json())
+        .then(data => console.log('Pose data sent successfully'))
+        .catch(error => console.error('Failed to send pose data:', error));
 }
