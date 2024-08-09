@@ -1,12 +1,12 @@
 from flask import Flask, send_from_directory, request, jsonify
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
 
 
 # Route to serve the HTML file
 @app.route("/")
 def index():
-    return send_from_directory("static", "webxr_position_rotation.html")
+    return send_from_directory("static", "index.html")
 
 
 # API endpoint to receive the position and rotation data
