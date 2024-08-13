@@ -39,7 +39,7 @@ const ERROR_BROWSER_NOT_SUPPORTED = 'error-browser-not-supported';
 const ERROR_REQUEST_TO_PRESENT_REJECTED = 'error-request-to-present-rejected';
 const ERROR_EXIT_PRESENT_REJECTED = 'error-exit-present-rejected';
 const ERROR_REQUEST_STATE_CHANGE_REJECTED = 'error-request-state-change-rejected';
-const ERROR_UNKOWN = 'error-unkown';
+const ERROR_UNKNOWN = 'error-unknown';
 
 //
 // DOM element
@@ -89,7 +89,7 @@ const injectCSS = (cssText) => {
 const createDefaultView = (options) => {
   const fontSize = options.height / 3;
   if (options.injectCSS) {
-    // Check that css isnt already injected
+    // Check that css isn't already injected
     if (!_WEBXR_UI_CSS_INJECTED[options.cssprefix]) {
       injectCSS(generateCSS(options, fontSize));
       _WEBXR_UI_CSS_INJECTED[options.cssprefix] = true;
@@ -306,7 +306,7 @@ export class WebXRButton {
    * @param {string} [options.textXRNotFoundTitle] set the text for when a XR display is not found
    * @param {string} [options.textExitXRTitle] set the text for exiting XR
    * @param {string} [options.color] text and icon color
-   * @param {string} [options.background] set to false for no brackground or a color
+   * @param {string} [options.background] set to false for no background or a color
    * @param {string} [options.corners] set to 'round', 'square' or pixel value representing the corner radius
    * @param {string} [options.disabledOpacity] set opacity of button dom when disabled
    * @param {string} [options.cssprefix] set to change the css prefix from default 'webvr-ui'
@@ -336,7 +336,7 @@ export class WebXRButton {
     this._enabled = false;
     this.session = null;
 
-    // Pass in your own domElement if you really dont want to use ours
+    // Pass in your own domElement if you really don't want to use ours
     this.domElement = options.domElement || createDefaultView(options);
     this.__defaultDisplayStyle = this.domElement.style.display || 'initial';
 

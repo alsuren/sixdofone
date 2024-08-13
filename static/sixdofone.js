@@ -1,3 +1,4 @@
+// @ts-check
 import { WebXRButton } from './js/util/webxr-button.js';
 import { Scene } from './js/render/scenes/scene.js';
 import { Renderer, createWebGLContext } from './js/render/core/renderer.js';
@@ -14,12 +15,14 @@ if (QueryArgs.getBool('usePolyfill', true)) {
 }
 
 // XR globals.
+/** @type: WebXRButton | null */
 let xrButton = null;
 let xrImmersiveRefSpace = null;
 let inlineViewerHelper = null;
 
 let isARAvailable = false;
 let isVRAvailable = false;
+/** @type XRSessionMode */
 let xrSessionString = 'immersive-vr';
 
 // WebGL scene globals.
@@ -49,7 +52,7 @@ export function initXR() {
         textXRNotFoundTitle: isARAvailable ? "AR NOT FOUND" : "VR NOT FOUND",
         textExitXRTitle: isARAvailable ? "EXIT  AR" : "EXIT  VR",
     });
-    document.querySelector('header').appendChild(xrButton.domElement);
+    document.querySelector('header')?.appendChild(xrButton.domElement);
 
     if (navigator.xr) {
         // Checks to ensure that 'immersive-ar' or 'immersive-vr' mode is available,
@@ -58,7 +61,7 @@ export function initXR() {
             isARAvailable = supported;
             xrButton.enabled = supported;
             if (!supported) {
-                navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                navigator.xr?.isSessionSupported('immersive-vr').then((supported) => {
                     isVRAvailable = supported;
                     xrButton.enabled = supported;
                 });
@@ -74,9 +77,11 @@ export function initXR() {
 function onRequestSession() {
     // Requests an 'immersive-ar' or 'immersive-vr' session, depending on which is supported,
     // and requests the 'anchors' module as a required feature.
-    return navigator.xr.requestSession(xrSessionString, { requiredFeatures: ['anchors'] })
+    return navigator.xr?.requestSession(xrSessionString, { requiredFeatures: ['anchors'] })
         .then((session) => {
+            if (!session) throw new Error("expected session")
             xrButton.setSession(session);
+            // @ts-expect-error anchors.html example squirrels away isImmersive on `session` :-(
             session.isImmersive = true;
             onSessionStarted(session);
         });
@@ -89,7 +94,9 @@ function initGL() {
     gl = createWebGLContext({
         xrCompatible: true
     });
-    document.body.appendChild(gl.canvas);
+    if (!gl) throw new Error("gl expected");
+
+    document.body.appendChild(/** @type HTMLCanvasElement */(gl.canvas));
 
     function onResize() {
         gl.canvas.width = gl.canvas.clientWidth * window.devicePixelRatio;
@@ -103,10 +110,14 @@ function initGL() {
     scene.setRenderer(renderer);
 }
 
+/**
+ * @param session {XRSession}
+ */
 function onSessionStarted(session) {
     session.addEventListener('end', onSessionEnded);
     session.addEventListener('select', onSelect);
 
+    // @ts-expect-error anchors.html example squirrels away isImmersive on `session` : -(
     if (session.isImmersive && isARAvailable) {
         // When in 'immersive-ar' mode don't draw an opaque background because
         // we want the real world to show through.
@@ -122,8 +133,11 @@ function onSessionStarted(session) {
 
     session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
+    /** @type {'local' | 'viewer'} */
+    // @ts-expect-error anchors.html example squirrels away isImmersive on `session` : -(
     let refSpaceType = session.isImmersive ? 'local' : 'viewer';
     session.requestReferenceSpace(refSpaceType).then((refSpace) => {
+        // @ts-expect-error anchors.html example squirrels away isImmersive on `session` : -(
         if (session.isImmersive) {
             xrImmersiveRefSpace = refSpace;
         } else {
@@ -140,7 +154,7 @@ function onEndSession(session) {
 function onSessionEnded(event) {
     if (event.session.isImmersive) {
         xrButton.setSession(null);
-        // Turn the background back on when we go back to the inlive view.
+        // Turn the background back on when we go back to the in live view.
         skybox.visible = true;
     }
 }
@@ -153,6 +167,7 @@ function addAnchoredObjectToScene(anchor) {
     let flower = new Gltf2Node({ url: 'media/gltf/sunflower/sunflower.gltf' });
     scene.addNode(flower);
     anchor.context.sceneObject = flower;
+    // @ts-expect-error anchors.html example squirrels away .anchor on `flower` : -(
     flower.anchor = anchor;
     anchoredObjects.push(flower);
 

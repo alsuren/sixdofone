@@ -18,11 +18,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-import {CAP, MAT_STATE, RENDER_ORDER, stateToBlendFunc} from './material.js';
-import {Node} from './node.js';
-import {Program} from './program.js';
-import {DataTexture, ExternalTexture, VideoTexture} from './texture.js';
-import {mat4, vec3} from '../math/gl-matrix.js';
+import { CAP, MAT_STATE, RENDER_ORDER, stateToBlendFunc } from './material.js';
+import { Node } from './node.js';
+import { Program } from './program.js';
+import { DataTexture, ExternalTexture, VideoTexture } from './texture.js';
+import { mat4, vec3 } from '../math/gl-matrix.js';
 
 export const ATTRIB = {
   POSITION: 1,
@@ -83,7 +83,7 @@ function isPowerOfTwo(n) {
 
 // Creates a WebGL context and initializes it with some common default state.
 export function createWebGLContext(glAttribs) {
-  glAttribs = glAttribs || {alpha: false};
+  glAttribs = glAttribs || { alpha: false };
 
   let webglCanvas = document.createElement('canvas');
   let contextTypes = glAttribs.webgl2 ? ['webgl2'] : ['webgl', 'experimental-webgl'];
@@ -152,7 +152,7 @@ export class RenderView {
   }
 
   set depthTexture(value) {
-     this._depthTexture = value;
+    this._depthTexture = value;
   }
 }
 
@@ -698,7 +698,7 @@ export class Renderer {
 
       // Bind the primitive material's program if it's different than the one we
       // were using for the previous primitive.
-      // TODO: The ording of this could be more efficient.
+      // TODO: The ordering of this could be more efficient.
       if (program != primitive._material._program) {
         program = primitive._material._program;
         program.use();
@@ -783,7 +783,7 @@ export class Renderer {
 
           if (primitive._indexBuffer) {
             gl.drawElements(primitive._mode, primitive._elementCount,
-                primitive._indexType, primitive._indexByteOffset);
+              primitive._indexType, primitive._indexByteOffset);
           } else {
             gl.drawArrays(primitive._mode, 0, primitive._elementCount);
           }
@@ -811,7 +811,7 @@ export class Renderer {
 
     let key = texture.textureKey;
     if (!key) {
-      throw new Error('Texure does not have a valid key');
+      throw new Error('Texture does not have a valid key');
     }
 
     if (key in this._textureCache) {
@@ -828,7 +828,7 @@ export class Renderer {
       } else if (texture instanceof DataTexture) {
         gl.bindTexture(gl.TEXTURE_2D, textureHandle);
         gl.texImage2D(gl.TEXTURE_2D, 0, texture.format, texture.width, texture.height,
-                                     0, texture.format, texture._type, texture._data);
+          0, texture.format, texture._type, texture._data);
         this._setSamplerParameters(texture);
         renderTexture._complete = true;
       } else {
@@ -913,14 +913,14 @@ export class Renderer {
     } else {
       let fullVertexSource = vertexSource;
       fullVertexSource += multiview ? VERTEX_SHADER_MULTI_ENTRY :
-                                      VERTEX_SHADER_SINGLE_ENTRY;
+        VERTEX_SHADER_SINGLE_ENTRY;
 
       let precisionMatch = fragmentSource.match(PRECISION_REGEX);
       let fragPrecisionHeader = precisionMatch ? '' : `precision ${this._defaultFragPrecision} float;\n`;
 
       let fullFragmentSource = fragPrecisionHeader + fragmentSource;
       fullFragmentSource += multiview ? FRAGMENT_SHADER_MULTI_ENTRY :
-                                        FRAGMENT_SHADER_ENTRY
+        FRAGMENT_SHADER_ENTRY
 
       let program = new Program(this._gl, fullVertexSource, fullFragmentSource, ATTRIB, defines);
       this._programCache[key] = program;
@@ -960,8 +960,8 @@ export class Renderer {
       gl.bindBuffer(gl.ARRAY_BUFFER, attributeBuffer._buffer._buffer);
       for (let attrib of attributeBuffer._attributes) {
         gl.vertexAttribPointer(
-            attrib._attrib_index, attrib._componentCount, attrib._componentType,
-            attrib._normalized, attrib._stride, attrib._byteOffset);
+          attrib._attrib_index, attrib._componentCount, attrib._componentType,
+          attrib._normalized, attrib._stride, attrib._byteOffset);
       }
     }
 
