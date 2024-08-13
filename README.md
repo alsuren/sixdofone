@@ -46,3 +46,13 @@ python app.py
 This will start the server on http port 8000, which tailscale will expose as https://yourhostname.your-tailnet-domain.ts.net/.
 
 <!-- TODO: add a jupyter-style auth token to the url and print it somehow? -->
+
+## Hacking
+
+Some notes:
+
+* You do not need nodejs in order to run the python server.
+  * I did add @ts-check to the top of some files though, and you can run `npm install` to get clean type-checking in vscode.
+  * Once https://tc39.es/proposal-type-annotations/ is implemented in some browsers, I will probably switch to using that.
+  * I may add some CI checks for the typescript bits in the future. No promises.
+* I initially picked flask because I heard a rumour that this is what lerobot are using for some of their tools. I might switch to something pydantic/fastapi-based at some point though.
