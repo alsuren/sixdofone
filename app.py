@@ -1,7 +1,9 @@
 import hashlib
 import hmac
+import json
 import logging
 from dataclasses import dataclass, field
+import subprocess
 from typing import Literal
 import os
 import sys
@@ -180,6 +182,30 @@ if __name__ == "__main__":
             print(
                 f"ngrok tunnel set up. Go to {tunnel.public_url}/static/sixdofone.html?secret={SIXDOFONE_SHARED_SECRET}"
             )
+    if os.environ.get("USE_TAILSCALE"):
+        if not SIXDOFONE_SHARED_SECRET:
+            import secrets
+
+            print(f"Refusing to set up a public tunnel without authentication. Please add\n\n\
+                  SIXDOFONE_SHARED_SECRET={secrets.token_hex(30)
+                                   }\n\nto your .env file"
+            )
+            sys.exit(1)
+        try:
+            out = subprocess.check_output("tailscale serve status --json".split())
+            tailscale_tunnels = json.loads(out)
+            print(f"got {tailscale_tunnels=}")
+            for (remote, handler) in tailscale_tunnels.get("Web", {}).items():
+                if not remote.endswith(":443"):
+                    continue
+                if handler != {'Handlers': {'/': {'Proxy': 'http://localhost:8000'}}}:
+                    continue
+                print(f"tailscale tunnel set up. Go to https://{remote.replace(":443", "")}/static/sixdofone.html?secret={SIXDOFONE_SHARED_SECRET}")
+            else:
+                assert False, "TODO: run `tailscale serve --bg localhost:8000` and print something useful here"
+
+        except:
+            pass
 
     rr.init("sixdofone", spawn=True)
     CAP = cv2.VideoCapture(0)
