@@ -66,7 +66,7 @@ CURRENT_DRAG_POSE = Pose(
 # Route to serve the HTML file
 @app.route("/")
 def index():
-    return redirect("static/anchors.html")
+    return redirect("static/sixdofone.html")
 
 
 # API endpoint to receive the position and rotation data
