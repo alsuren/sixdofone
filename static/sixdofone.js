@@ -1,4 +1,7 @@
 // @ts-check
+// @ts-expect-error no type stubs for CDN things. Feels like there should be a way to fix this.
+import { renderSVG } from 'https://cdn.jsdelivr.net/npm/uqr@0.1.2/+esm'
+
 import { WebXRButton } from './js/util/webxr-button.js';
 import { Scene } from './js/render/scenes/scene.js';
 import { Renderer, createWebGLContext } from './js/render/core/renderer.js';
@@ -41,6 +44,20 @@ let skybox = new SkyboxNode({ url: 'media/textures/milky-way-4k.png' });
 scene.addNode(skybox);
 
 export function initXR() {
+    const header = document.querySelector('header')
+    if (!header) {
+        throw new Error("missing <header> element")
+    }
+
+    const qrCodeSVG = renderSVG(window.location.href)
+    console.log(qrCodeSVG)
+    const svgDataUri = 'data:image/svg+xml;base64,' + btoa(qrCodeSVG);
+    console.log(svgDataUri)
+    const imgElement = document.createElement('img');
+    imgElement.src = svgDataUri;
+    imgElement.alt = 'QR Code';
+    header.appendChild(imgElement);
+
     xrButton = new WebXRButton({
         onRequestSession: onRequestSession,
         onEndSession: onEndSession,
@@ -48,7 +65,7 @@ export function initXR() {
         textXRNotFoundTitle: isARAvailable ? "AR NOT FOUND" : "VR NOT FOUND",
         textExitXRTitle: isARAvailable ? "EXIT  AR" : "EXIT  VR",
     });
-    document.querySelector('header')?.appendChild(xrButton.domElement);
+    header.appendChild(xrButton.domElement);
 
     if (navigator.xr) {
         // Checks to ensure that 'immersive-ar' or 'immersive-vr' mode is available,
