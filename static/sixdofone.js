@@ -229,7 +229,7 @@ function sendData(pose) {
         return sendData(pose)
     }
 
-    fetch('/api/report', {
+    fetchSerialized('/api/report', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -240,7 +240,26 @@ function sendData(pose) {
             dragStartPosition: dragStartPose && { x: dragStartPose.transform.position.x, y: dragStartPose.transform.position.y, z: dragStartPose.transform.position.z },
             dragStartOrientation: dragStartPose && { x: dragStartPose.transform.orientation.x, y: dragStartPose.transform.orientation.y, z: dragStartPose.transform.orientation.z, w: dragStartPose.transform.orientation.w },
         })
-    }).then(response => response.json())
-        .then(data => console.log('Pose data sent successfully'))
+    }).then(response => response?.json())
+        .then(data => data ? console.log('Pose data sent successfully') : console.log('Skipped sending pose'))
         .catch(error => console.error('Failed to send pose data:', error));
+}
+
+/** @type Promise<Response> | null */
+let fetchInFlight = null
+/**
+ * Calls fetch() but only if there is not already a fetch() call in flight
+ *
+ * @param {string} url
+ * @param {RequestInit} init
+ * @returns {Promise<Response | null>}
+ */
+async function fetchSerialized(url, init) {
+    if (fetchInFlight) {
+        return null
+    }
+    fetchInFlight = fetch(url, init)
+    const response = await fetchInFlight;
+    fetchInFlight = null
+    return response
 }
