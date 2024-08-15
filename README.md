@@ -4,8 +4,20 @@ This is a python app for
 
 ## Setup
 
+### Install requirements
 
-### Setup tailscale on all devices
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+
+### Get HTTPS working
+<details>
+<summary>
+#### Option A: Setup tailscale on all devices
+</summary>
 
 This is recommended so that your phone can talk to your computer over https. You could use ngrok instead if you want.
 
@@ -26,14 +38,31 @@ https://yourhostname.your-tailnet-domain.ts.net/
 Serve started and running in the background.
 To disable the proxy, run: tailscale serve --https=443 off
 ```
+</details>
 
-### Install requirements
+<details>
+<summary>
+#### Option A: Setup tailscale on all devices
+</summary>
+
+This is the quickest way to get things set up, but you may find that ngrok adds quite a lot of latency. If you find yourself only getting a couple of poses per second then consider switching to tailscale.
+
+* Go to https://ngrok.com and sign up
+* run `ngrok config add-authtoken <your auth token>` to make ngrok happy
+  <!-- FIXME: uninstall ngrok and add some better instructions here -->
+  * if you don't have ngrok installed, just plough through and let it fail when running, then try again (pyngrok will install ngrok for you)
+
+</details>
+
+### Add a .env file
 
 ```bash
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+cp .env.example .env
 ```
+and then add a SIXDOFONE_SHARED_SECRET by following the instructions in your new .env file.
+
+Also set USE_NGROK or USE_TAILSCALE to something nonempty, to pick one of them to use.
+
 
 ## Running the app
 

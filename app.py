@@ -166,7 +166,9 @@ if __name__ == "__main__":
     
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
-    # you need to sign up to ngrok and run `ngrok config add-authtoken ...` before this will work
+    # You need to sign up to ngrok and run `ngrok config add-authtoken ...` before this will work.
+    # This is slightly quicker to set up than tailscale, but has really dreadful latency because
+    # it can't keep everything inside your local network.
     if os.environ.get("USE_NGROK"):
         if not SIXDOFONE_SHARED_SECRET:
             import secrets
@@ -182,6 +184,9 @@ if __name__ == "__main__":
             print(
                 f"ngrok tunnel set up. Go to {tunnel.public_url}/static/sixdofone.html?secret={SIXDOFONE_SHARED_SECRET}"
             )
+    
+    # This is slightly harder to set up than ngrok, but it's worth is because it doesn't have to
+    # route everything via ngrok's servers. This means that the latency is **much** better.
     if os.environ.get("USE_TAILSCALE"):
         if not SIXDOFONE_SHARED_SECRET:
             import secrets
