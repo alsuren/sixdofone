@@ -39,7 +39,7 @@ const ERROR_BROWSER_NOT_SUPPORTED = 'error-browser-not-supported';
 const ERROR_REQUEST_TO_PRESENT_REJECTED = 'error-request-to-present-rejected';
 const ERROR_EXIT_PRESENT_REJECTED = 'error-exit-present-rejected';
 const ERROR_REQUEST_STATE_CHANGE_REJECTED = 'error-request-state-change-rejected';
-const ERROR_UNKOWN = 'error-unkown';
+const ERROR_UNKNOWN = 'error-unknown';
 
 //
 // DOM element
@@ -56,8 +56,8 @@ let _WEBXR_UI_CSS_INJECTED = {};
  * @param {Number} height
  * @private
  */
-const generateInnerHTML = (cssPrefix, height)=> {
-  const logoHeight = height*_LOGO_SCALE;
+const generateInnerHTML = (cssPrefix, height) => {
+  const logoHeight = height * _LOGO_SCALE;
   const svgString = generateXRIconString(cssPrefix, logoHeight) + generateNoXRIconString(cssPrefix, logoHeight);
 
   return `<button class="${cssPrefix}-button">
@@ -71,7 +71,7 @@ const generateInnerHTML = (cssPrefix, height)=> {
  *
  * @param {string} cssText the css to inject
  */
-const injectCSS = (cssText)=> {
+const injectCSS = (cssText) => {
   // Create the css
   const style = document.createElement('style');
   style.innerHTML = cssText;
@@ -86,10 +86,10 @@ const injectCSS = (cssText)=> {
  * @return {HTMLElement}
  * @param {Object} options
  */
-const createDefaultView = (options)=> {
+const createDefaultView = (options) => {
   const fontSize = options.height / 3;
   if (options.injectCSS) {
-    // Check that css isnt already injected
+    // Check that css isn't already injected
     if (!_WEBXR_UI_CSS_INJECTED[options.cssprefix]) {
       injectCSS(generateCSS(options, fontSize));
       _WEBXR_UI_CSS_INJECTED[options.cssprefix] = true;
@@ -102,21 +102,21 @@ const createDefaultView = (options)=> {
 };
 
 
-const createXRIcon = (cssPrefix, height)=>{
+const createXRIcon = (cssPrefix, height) => {
   const el = document.createElement('div');
   el.innerHTML = generateXRIconString(cssPrefix, height);
   return el.firstChild;
 };
 
-const createNoXRIcon = (cssPrefix, height)=>{
+const createNoXRIcon = (cssPrefix, height) => {
   const el = document.createElement('div');
   el.innerHTML = generateNoXRIconString(cssPrefix, height);
   return el.firstChild;
 };
 
-const generateXRIconString = (cssPrefix, height)=> {
-    let aspect = 28 / 18;
-    return `<svg class="${cssPrefix}-svg" version="1.1" x="0px" y="0px"
+const generateXRIconString = (cssPrefix, height) => {
+  let aspect = 28 / 18;
+  return `<svg class="${cssPrefix}-svg" version="1.1" x="0px" y="0px"
         width="${aspect * height}px" height="${height}px" viewBox="0 0 28 18" xml:space="preserve">
         <path d="M26.8,1.1C26.1,0.4,25.1,0,24.2,0H3.4c-1,0-1.7,0.4-2.4,1.1C0.3,1.7,0,2.7,0,3.6v10.7
         c0,1,0.3,1.9,0.9,2.6C1.6,17.6,2.4,18,3.4,18h5c0.7,0,1.3-0.2,1.8-0.5c0.6-0.3,1-0.8,1.3-1.4l
@@ -128,9 +128,9 @@ const generateXRIconString = (cssPrefix, height)=> {
     </svg>`;
 };
 
-const generateNoXRIconString = (cssPrefix, height)=>{
-    let aspect = 28 / 18;
-    return `<svg class="${cssPrefix}-svg-error" x="0px" y="0px"
+const generateNoXRIconString = (cssPrefix, height) => {
+  let aspect = 28 / 18;
+  return `<svg class="${cssPrefix}-svg-error" x="0px" y="0px"
         width="${aspect * height}px" height="${aspect * height}px" viewBox="0 0 28 28" xml:space="preserve">
         <path d="M17.6,13.4c0-0.2-0.1-0.4-0.1-0.6c0-1.6,1.3-2.8,2.8-2.8s2.8,1.3,2.8,2.8s-1.3,2.8-2.8,2.8
         c-0.2,0-0.4,0-0.6-0.1l5.9,5.9c0.5-0.2,0.9-0.4,1.3-0.8
@@ -151,7 +151,7 @@ const generateNoXRIconString = (cssPrefix, height)=>{
  * @param {Number} [fontSize=18]
  * @return {string}
  */
-const generateCSS = (options, fontSize=18)=> {
+const generateCSS = (options, fontSize = 18) => {
   const height = options.height;
   const borderWidth = 2;
   const borderColor = options.background ? options.background : options.color;
@@ -222,13 +222,13 @@ const generateCSS = (options, fontSize=18)=> {
     .${cssPrefix}-svg {
         fill: ${options.color};
         margin-top: ${(height - fontSize * _LOGO_SCALE) / 2 - 2}px;
-        margin-left: ${height / 3 }px;
+        margin-left: ${height / 3}px;
     }
     .${cssPrefix}-svg-error {
         fill: ${options.color};
         display:none;
         margin-top: ${(height - 28 / 18 * fontSize * _LOGO_SCALE) / 2 - 2}px;
-        margin-left: ${height / 3 }px;
+        margin-left: ${height / 3}px;
     }
 
 
@@ -300,11 +300,13 @@ export class WebXRButton {
    * @param {Function} [options.beforeEnter] should return a promise, opportunity to intercept request to enter
    * @param {Function} [options.beforeExit] should return a promise, opportunity to intercept request to exit
    * @param {Function} [options.onRequestStateChange] set to a function returning false to prevent default state changes
+   * @param {function} [options.onRequestSession] called when the user clicks the button to start the vr session
+   * @param {function} [options.onEndSession] called when the user ends the vr session
    * @param {string} [options.textEnterXRTitle] set the text for Enter XR
    * @param {string} [options.textXRNotFoundTitle] set the text for when a XR display is not found
    * @param {string} [options.textExitXRTitle] set the text for exiting XR
    * @param {string} [options.color] text and icon color
-   * @param {string} [options.background] set to false for no brackground or a color
+   * @param {string} [options.background] set to false for no background or a color
    * @param {string} [options.corners] set to 'round', 'square' or pixel value representing the corner radius
    * @param {string} [options.disabledOpacity] set opacity of button dom when disabled
    * @param {string} [options.cssprefix] set to change the css prefix from default 'webvr-ui'
@@ -324,8 +326,8 @@ export class WebXRButton {
     options.textXRNotFoundTitle = options.textXRNotFoundTitle || 'VR NOT FOUND';
     options.textExitXRTitle = options.textExitXRTitle || 'EXIT VR';
 
-    options.onRequestSession = options.onRequestSession || (function() {});
-    options.onEndSession = options.onEndSession || (function() {});
+    options.onRequestSession = options.onRequestSession || (function () { });
+    options.onEndSession = options.onEndSession || (function () { });
 
     options.injectCSS = options.injectCSS !== false;
 
@@ -334,12 +336,12 @@ export class WebXRButton {
     this._enabled = false;
     this.session = null;
 
-    // Pass in your own domElement if you really dont want to use ours
+    // Pass in your own domElement if you really don't want to use ours
     this.domElement = options.domElement || createDefaultView(options);
     this.__defaultDisplayStyle = this.domElement.style.display || 'initial';
 
     // Bind button click events to __onClick
-    this.domElement.addEventListener('click', ()=> this.__onXRButtonClick());
+    this.domElement.addEventListener('click', () => this.__onXRButtonClick());
 
     this.__forceDisabled = false;
     this.__setDisabledAttribute(true);
@@ -383,7 +385,7 @@ export class WebXRButton {
    */
   setTitle(text) {
     this.domElement.title = text;
-    ifChild(this.domElement, this.options.cssprefix, 'title', (title)=> {
+    ifChild(this.domElement, this.options.cssprefix, 'title', (title) => {
       if (!text) {
         title.style.display = 'none';
       } else {
@@ -524,7 +526,7 @@ export class WebXRButton {
  * @param {function} fn function to call if child is found
  * @private
  */
-const ifChild = (el, cssPrefix, suffix, fn)=> {
+const ifChild = (el, cssPrefix, suffix, fn) => {
   const c = el.querySelector('.' + cssPrefix + '-' + suffix);
   c && fn(c);
 };
