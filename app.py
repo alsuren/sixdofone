@@ -1,13 +1,24 @@
+import hashlib
+import hmac
+import json
 import logging
 from dataclasses import dataclass, field
+import subprocess
 from typing import Literal
+import os
+import sys
 
 
+from dotenv import load_dotenv
 from flask import Flask, request, jsonify, redirect
 import rerun as rr
 import numpy as np
 import cv2
 from pyquaternion import Quaternion
+from pyngrok import ngrok
+
+load_dotenv()
+SIXDOFONE_SHARED_SECRET = os.environ.get("SIXDOFONE_SHARED_SECRET")
 
 app = Flask(__name__)
 
@@ -66,14 +77,24 @@ CURRENT_DRAG_POSE = Pose(
 # Route to serve the HTML file
 @app.route("/")
 def index():
-    return redirect("static/anchors.html")
+    return redirect("static/sixdofone.html")
 
 
 # API endpoint to receive the position and rotation data
 @app.route("/api/report", methods=["POST"])
 def report():
+    if SIXDOFONE_SHARED_SECRET:
+        method, token = request.headers.get("Authorization", ' ').split(' ')
+        if method.lower() != 'hmac' or not token:
+            print("missing hmac")
+            return jsonify({"status": "missing hmac"}), 403
+        expected_hmac = hmac.new(SIXDOFONE_SHARED_SECRET.encode(), request.data, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected_hmac, token):
+            print("invalid hmac")
+            return jsonify({"status": "invalid hmac"}), 403
+    
     report_inner(request.json)
-
+            
     return jsonify({"status": "success"}), 200
 
 
@@ -141,9 +162,56 @@ def report_inner(data):
 
 
 if __name__ == "__main__":
+
+    
     logging.getLogger("werkzeug").setLevel(logging.ERROR)
+
+    # You need to sign up to ngrok and run `ngrok config add-authtoken ...` before this will work.
+    # This is slightly quicker to set up than tailscale, but has really dreadful latency because
+    # it can't keep everything inside your local network.
+    if os.environ.get("USE_NGROK"):
+        if not SIXDOFONE_SHARED_SECRET:
+            import secrets
+
+            print(f"Refusing to set up a public tunnel without authentication. Please add\n\n\
+                  SIXDOFONE_SHARED_SECRET={secrets.token_hex(30)
+                                   }\n\nto your .env file"
+            )
+            sys.exit(1)
+
+        if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+            tunnel = ngrok.connect("http://localhost:8000", bind_tls=True)
+            print(
+                f"ngrok tunnel set up. Go to {tunnel.public_url}/static/sixdofone.html?secret={SIXDOFONE_SHARED_SECRET}"
+            )
+    
+    # This is slightly harder to set up than ngrok, but it's worth is because it doesn't have to
+    # route everything via ngrok's servers. This means that the latency is **much** better.
+    if os.environ.get("USE_TAILSCALE"):
+        if not SIXDOFONE_SHARED_SECRET:
+            import secrets
+
+            print(f"Refusing to set up a public tunnel without authentication. Please add\n\n\
+                  SIXDOFONE_SHARED_SECRET={secrets.token_hex(30)
+                                   }\n\nto your .env file"
+            )
+            sys.exit(1)
+        try:
+            out = subprocess.check_output("tailscale serve status --json".split())
+            tailscale_tunnels = json.loads(out)
+            print(f"got {tailscale_tunnels=}")
+            for (remote, handler) in tailscale_tunnels.get("Web", {}).items():
+                if not remote.endswith(":443"):
+                    continue
+                if handler != {'Handlers': {'/': {'Proxy': 'http://localhost:8000'}}}:
+                    continue
+                print(f"tailscale tunnel set up. Go to https://{remote.replace(":443", "")}/static/sixdofone.html?secret={SIXDOFONE_SHARED_SECRET}")
+            else:
+                assert False, "TODO: run `tailscale serve --bg localhost:8000` and print something useful here"
+
+        except:
+            pass
 
     rr.init("sixdofone", spawn=True)
     CAP = cv2.VideoCapture(0)
-
     app.run(host="0.0.0.0", port=8000, debug=True)

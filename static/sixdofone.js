@@ -1,4 +1,7 @@
 // @ts-check
+// @ts-expect-error no type stubs for CDN things. Feels like there should be a way to fix this.
+import { renderSVG } from 'https://cdn.jsdelivr.net/npm/uqr@0.1.2/+esm'
+
 import { WebXRButton } from './js/util/webxr-button.js';
 import { Scene } from './js/render/scenes/scene.js';
 import { Renderer, createWebGLContext } from './js/render/core/renderer.js';
@@ -11,7 +14,7 @@ import { QueryArgs } from './js/util/query-args.js';
 // and devices which only support WebVR.
 import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
 if (QueryArgs.getBool('usePolyfill', true)) {
-    let polyfill = new WebXRPolyfill();
+    new WebXRPolyfill();
 }
 
 // XR globals.
@@ -41,6 +44,20 @@ let skybox = new SkyboxNode({ url: 'media/textures/milky-way-4k.png' });
 scene.addNode(skybox);
 
 export function initXR() {
+    const header = document.querySelector('header')
+    if (!header) {
+        throw new Error("missing <header> element")
+    }
+
+    const qrCodeSVG = renderSVG(window.location.href)
+    console.log(qrCodeSVG)
+    const svgDataUri = 'data:image/svg+xml;base64,' + btoa(qrCodeSVG);
+    console.log(svgDataUri)
+    const imgElement = document.createElement('img');
+    imgElement.src = svgDataUri;
+    imgElement.alt = 'QR Code';
+    header.appendChild(imgElement);
+
     xrButton = new WebXRButton({
         onRequestSession: onRequestSession,
         onEndSession: onEndSession,
@@ -48,7 +65,7 @@ export function initXR() {
         textXRNotFoundTitle: isARAvailable ? "AR NOT FOUND" : "VR NOT FOUND",
         textExitXRTitle: isARAvailable ? "EXIT  AR" : "EXIT  VR",
     });
-    document.querySelector('header')?.appendChild(xrButton.domElement);
+    header.appendChild(xrButton.domElement);
 
     if (navigator.xr) {
         // Checks to ensure that 'immersive-ar' or 'immersive-vr' mode is available,
@@ -229,7 +246,7 @@ function sendData(pose) {
         return sendData(pose)
     }
 
-    fetch('/api/report', {
+    fetchSerialized('/api/report', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -240,7 +257,81 @@ function sendData(pose) {
             dragStartPosition: dragStartPose && { x: dragStartPose.transform.position.x, y: dragStartPose.transform.position.y, z: dragStartPose.transform.position.z },
             dragStartOrientation: dragStartPose && { x: dragStartPose.transform.orientation.x, y: dragStartPose.transform.orientation.y, z: dragStartPose.transform.orientation.z, w: dragStartPose.transform.orientation.w },
         })
-    }).then(response => response.json())
-        .then(data => console.log('Pose data sent successfully'))
+    }).then(response => response?.json())
+        .then(data => data ? console.log('Pose data sent successfully') : console.log('Skipped sending pose'))
         .catch(error => console.error('Failed to send pose data:', error));
+}
+
+/** @type Promise<Response> | null */
+let fetchInFlight = null
+/**
+ * Calls fetch() but only if there is not already a fetch() call in flight
+ *
+ * @param {string} url
+ * @param {RequestInit} init
+ * @returns {Promise<Response | null>}
+ */
+async function fetchSerialized(url, init) {
+    if (fetchInFlight) {
+        return null
+    }
+    fetchInFlight = fetchSigned(url, init)
+    const response = await fetchInFlight;
+    fetchInFlight = null
+    return response
+}
+
+/**
+ * Calls fetch() but adds HMAC signature based on ?secret= param if it exists.
+ *
+ * @param {string} url
+ * @param {RequestInit} init
+ * @returns {Promise<Response>}
+ */
+async function fetchSigned(url, init) {
+    const secret = new URLSearchParams(window.location.search).get("secret")
+    if (!secret) {
+        return fetch(url, init)
+    }
+    if (typeof init.body !== 'string') {
+        throw new Error("Unexpected body. Expected string.")
+    }
+
+    const signature = await generateHMAC(secret, init.body)
+    init.headers = {
+        ...init.headers,
+        ...{
+            'Content-Type': 'application/json',
+            'Authorization': `HMAC ${signature}`
+        }
+    }
+
+    return fetch(url, init)
+}
+
+/**
+ * @param {string} secret
+ * @param {string} payload
+ * @returns {Promise<string>} hmac token
+ */
+async function generateHMAC(secret, payload) {
+    const encoder = new TextEncoder();
+    const key = await window.crypto.subtle.importKey(
+        'raw',
+        encoder.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+
+    const signature = await window.crypto.subtle.sign(
+        'HMAC',
+        key,
+        encoder.encode(payload)
+    );
+
+    // Convert signature to hexadecimal string
+    return Array.from(new Uint8Array(signature))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 }
