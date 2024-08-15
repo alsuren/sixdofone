@@ -1,11 +1,66 @@
 import logging
+from dataclasses import dataclass, field
+from typing import Literal
+
 
 from flask import Flask, request, jsonify, redirect
 import rerun as rr
 import numpy as np
 import cv2
+from pyquaternion import Quaternion
 
 app = Flask(__name__)
+
+
+@dataclass
+class Pose:
+    position: np.array
+    orientation: Quaternion
+
+
+def pose_from_webxr(
+    position: dict[Literal["x"] | Literal["y"] | Literal["x"], float],
+    orientation: dict[Literal["w"] | Literal["x"] | Literal["y"] | Literal["x"], float],
+):
+    """
+    Note that the webxr idea of x, y and z are based on the starting position of the camera,
+    where y+ is "up" and z+ is "close" (TODO: double-check this).
+    We need to convert them to the x, y, z of the table, where z+ is "up" and y+ is "away"
+    """
+    return Pose(
+        position=np.array(
+            [
+                position["x"],
+                -position["z"],
+                position["y"],
+            ]
+        ),
+        orientation=Quaternion(axis=[1, 0, 0], degrees=90)
+        * Quaternion(
+            w=orientation["w"],
+            x=orientation["x"],
+            y=orientation["y"],
+            z=orientation["z"],
+        ),
+    )
+
+
+# position is in metres, and a 1m long arrow looks a bit silly in rerun.
+SHORT_FORWARD_VECTOR = np.array([0, 0, -0.1])
+
+CURRENTLY_DRAGGING = False
+PREVIOUS_POSE = Pose(
+    position=np.array([0, 0, 0]),
+    orientation=Quaternion(axis=[1.0, 0.0, 0.0], degrees=90),
+)
+PREVIOUS_DRAG_END_POSE = Pose(
+    position=np.array([0, 0, 0]),
+    orientation=Quaternion(axis=[1.0, 0.0, 0.0], degrees=90),
+)
+CURRENT_DRAG_POSE = Pose(
+    position=np.array([0, 0, 0]),
+    orientation=Quaternion(axis=[1.0, 0.0, 0.0], degrees=90),
+)
 
 
 # Route to serve the HTML file
@@ -23,67 +78,66 @@ def report():
 
 
 def report_inner(data):
-    # e.g. {'position': {'x': 0, 'y': 0, 'z': 0}, 'orientation': {'x': 0, 'y': 0, 'z': 0, 'w': 1}}
-    # FIXME: I have no idea what w is for. I should read the webxr docs.
+    global CURRENTLY_DRAGGING
+    global PREVIOUS_DRAG_END_POSE
+    global CURRENT_DRAG_POSE
+
+    # e.g.
+    # {
+    #     'position': {'x': 0, 'y': 0, 'z': 0},
+    #     'orientation': {'x': 0, 'y': 0, 'z': 0, 'w': 1}, # quaternion
+    #     'dragStartPosition': {'x': 0, 'y': 0, 'z': 0},
+    #     'dragStartOrientation': {'x': 0, 'y': 0, 'z': 0, 'w': 1}, # quaternion
+    # }
+    # Note that the webxr idea of x, y and z are based on the starting position of the camera,
+    # where y+ is "up" and z+ is "close" (TODO: double-check this).
+    # We need to convert them to the x, y, z of the table, where z+ is "up" and y+ is "away"
+    #
     # FIXME: add some types to this mess.
     data = request.json
 
-    if (
-        data["position"]["x"] == 0
-        and data["position"]["y"] == 0
-        and data["position"]["z"] == 0
-    ):
-        # FIXME: We should probably filter this out in js-land instead.
-        # Seems to happen when you exit out of the vr app/refresh?
-        return
-
     print(f"got: {data}")
 
-    forward_vector = np.array([0, 0, -1])
-    rotation_matrix = quaternion_to_rotation_matrix(**data["orientation"])
-
-    # Rotate the forward vector
-    rotated_vector = np.dot(rotation_matrix, forward_vector)
-
-    item = rr.Arrows3D(
-        origins=[
-            [
-                data["position"]["x"],
-                data["position"]["y"],
-                data["position"]["z"],
-            ]
-        ],
-        # position is in metres, and a 1m long arrow looks a bit silly in rerun.
-        vectors=[rotated_vector * 0.1],
+    pose = pose_from_webxr(
+        data["position"],
+        data["orientation"],
     )
+    if data.get("dragStartPosition") and data.get("dragStartOrientation"):
+        CURRENTLY_DRAGGING = True
+        drag_start_pose = pose_from_webxr(
+            data["dragStartPosition"], data["dragStartOrientation"]
+        )
+
+        CURRENT_DRAG_POSE = Pose(
+            PREVIOUS_DRAG_END_POSE.position - drag_start_pose.position + pose.position,
+            pose.orientation
+            * drag_start_pose.orientation.conjugate
+            * PREVIOUS_DRAG_END_POSE.orientation,
+        )
+        rr.log(
+            "phone/drag",
+            rr.Arrows3D(
+                origins=[CURRENT_DRAG_POSE.position],
+                vectors=[CURRENT_DRAG_POSE.orientation.rotate(SHORT_FORWARD_VECTOR)],
+            ),
+        )
+    elif CURRENTLY_DRAGGING:
+        CURRENTLY_DRAGGING = False
+        PREVIOUS_DRAG_END_POSE = CURRENT_DRAG_POSE
+
     # FIXME: find a way to set "visible time range" programmatically to give us a tail of previous
     # arrows (probably by setting a blueprint on startup). For now I've been setting it up manually.
-    rr.log("phone", item)
+    rr.log(
+        "phone/current",
+        rr.Arrows3D(
+            origins=[pose.position],
+            vectors=[pose.orientation.rotate(SHORT_FORWARD_VECTOR)],
+        ),
+    )
     ret, img = CAP.read()
     if ret:
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         rr.log("webcam", rr.Image(rgb))
-
-
-# More chatgpt nonsense because I don't want to bother adding more dependencies
-def quaternion_to_rotation_matrix(w, x, y, z):
-    """
-    Convert a quaternion into a rotation matrix.
-    """
-    # Normalize the quaternion
-    norm = np.sqrt(w**2 + x**2 + y**2 + z**2)
-    w, x, y, z = w / norm, x / norm, y / norm, z / norm
-
-    # Calculate elements of the rotation matrix
-    matrix = np.array(
-        [
-            [1 - 2 * y**2 - 2 * z**2, 2 * x * y - 2 * z * w, 2 * x * z + 2 * y * w],
-            [2 * x * y + 2 * z * w, 1 - 2 * x**2 - 2 * z**2, 2 * y * z - 2 * x * w],
-            [2 * x * z - 2 * y * w, 2 * y * z + 2 * x * w, 1 - 2 * x**2 - 2 * y**2],
-        ]
-    )
-
-    return matrix
 
 
 if __name__ == "__main__":
