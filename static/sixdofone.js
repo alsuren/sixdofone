@@ -14,7 +14,7 @@ import { QueryArgs } from './js/util/query-args.js';
 // and devices which only support WebVR.
 import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
 if (QueryArgs.getBool('usePolyfill', true)) {
-    let polyfill = new WebXRPolyfill();
+    new WebXRPolyfill();
 }
 
 // XR globals.
@@ -275,8 +275,63 @@ async function fetchSerialized(url, init) {
     if (fetchInFlight) {
         return null
     }
-    fetchInFlight = fetch(url, init)
+    fetchInFlight = fetchSigned(url, init)
     const response = await fetchInFlight;
     fetchInFlight = null
     return response
+}
+
+/**
+ * Calls fetch() but adds HMAC signature based on ?secret= param if it exists.
+ *
+ * @param {string} url
+ * @param {RequestInit} init
+ * @returns {Promise<Response>}
+ */
+async function fetchSigned(url, init) {
+    const secret = new URLSearchParams(window.location.search).get("secret")
+    if (!secret) {
+        return fetch(url, init)
+    }
+    if (typeof init.body !== 'string') {
+        throw new Error("Unexpected body. Expected string.")
+    }
+
+    const signature = await generateHMAC(secret, init.body)
+    init.headers = {
+        ...init.headers,
+        ...{
+            'Content-Type': 'application/json',
+            'Authorization': `HMAC ${signature}`
+        }
+    }
+
+    return fetch(url, init)
+}
+
+/**
+ * @param {string} secret
+ * @param {string} payload
+ * @returns {Promise<string>} hmac token
+ */
+async function generateHMAC(secret, payload) {
+    const encoder = new TextEncoder();
+    const key = await window.crypto.subtle.importKey(
+        'raw',
+        encoder.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign']
+    );
+
+    const signature = await window.crypto.subtle.sign(
+        'HMAC',
+        key,
+        encoder.encode(payload)
+    );
+
+    // Convert signature to hexadecimal string
+    return Array.from(new Uint8Array(signature))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 }
