@@ -150,8 +150,8 @@ def report_inner(data):
                 origins=[CURRENT_DRAG_POSE.position],
                 vectors=[CURRENT_DRAG_POSE.orientation.rotate(SHORT_FORWARD_VECTOR)],
                 colors=[
-                    (1 + CURRENT_DRAG_POSE.gamepad_axes[0]) / 2,
-                    (1 + CURRENT_DRAG_POSE.gamepad_axes[1]) / 2,
+                    (1 + pose.gamepad_axes[0]) / 2,
+                    (1 + pose.gamepad_axes[1]) / 2,
                     0,
                 ]
             ),
