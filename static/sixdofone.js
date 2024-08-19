@@ -27,6 +27,16 @@ let isARAvailable = false;
 /** @type XRSessionMode */
 let xrSessionString = 'immersive-vr';
 
+/**
+ * It turns out the browser mutates this in place, so  we can save this as a global and rely on
+ * dragInputSource.gamepad.axes being updated ready for each frame callback.
+ *
+ * @type {XRInputSource | undefined}
+ */
+let dragInputSource = undefined;
+
+/** @type {number[] | undefined} */
+let dragStartGamepadAxes = undefined;
 /** @type {XRViewerPose | "start" | undefined} */
 let dragStartPose = undefined;
 
@@ -179,6 +189,8 @@ function onSessionEnded(event) {
 /** @type {(this: XRSession, ev: XRInputSourceEvent) => any} */
 function onSelect(event) {
     if (event.type == 'selectstart') {
+        dragInputSource = event.inputSource
+        dragStartGamepadAxes = [...dragInputSource?.gamepad?.axes ?? []]
         // We can't frame.getViewerPose() here because we're not in a requestAnimationFrame callback,
         // so we set a sentinel and let it happen next time we are.
         dragStartPose = "start";
@@ -201,6 +213,7 @@ function onXRFrame(t, frame) {
     // @ts-expect-error this isImmersive is my fault. I think I might just make a single god object
     // and pass all of my state around using that rather than shoving it on `session`?
     if (session.isImmersive) {
+        // FIXME: this pile of functions rely on a lot of global variables.
         reportPoseIfNeeded(t, pose);
     }
 
@@ -254,8 +267,10 @@ function sendData(pose) {
         body: JSON.stringify({
             position: { x: pose.transform.position.x, y: pose.transform.position.y, z: pose.transform.position.z },
             orientation: { x: pose.transform.orientation.x, y: pose.transform.orientation.y, z: pose.transform.orientation.z, w: pose.transform.orientation.w },
+            gamepadAxes: dragInputSource?.gamepad?.axes,
             dragStartPosition: dragStartPose && { x: dragStartPose.transform.position.x, y: dragStartPose.transform.position.y, z: dragStartPose.transform.position.z },
             dragStartOrientation: dragStartPose && { x: dragStartPose.transform.orientation.x, y: dragStartPose.transform.orientation.y, z: dragStartPose.transform.orientation.z, w: dragStartPose.transform.orientation.w },
+            dragStartGamepadAxes,
         })
     }).then(response => response?.json())
         .then(data => data ? console.log('Pose data sent successfully') : console.log('Skipped sending pose'))

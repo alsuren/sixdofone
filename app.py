@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from flask import Flask, request, jsonify, redirect
 import rerun as rr
 import numpy as np
+import numpy.typing as npt
 import cv2
 from pyquaternion import Quaternion
 from pyngrok import ngrok
@@ -25,13 +26,15 @@ app = Flask(__name__)
 
 @dataclass
 class Pose:
-    position: np.array
+    position: npt.NDArray[np.float64]
     orientation: Quaternion
+    gamepad_axes: npt.NDArray[np.float64]
 
 
 def pose_from_webxr(
     position: dict[Literal["x"] | Literal["y"] | Literal["x"], float],
     orientation: dict[Literal["w"] | Literal["x"] | Literal["y"] | Literal["x"], float],
+    gamepad_axes: list[float],
 ):
     """
     Note that the webxr idea of x, y and z are based on the starting position of the camera,
@@ -53,6 +56,7 @@ def pose_from_webxr(
             y=orientation["y"],
             z=orientation["z"],
         ),
+        gamepad_axes=np.array(gamepad_axes)
     )
 
 
@@ -63,14 +67,17 @@ CURRENTLY_DRAGGING = False
 PREVIOUS_POSE = Pose(
     position=np.array([0, 0, 0]),
     orientation=Quaternion(axis=[1.0, 0.0, 0.0], degrees=90),
+    gamepad_axes=np.array([0, 0]),
 )
 PREVIOUS_DRAG_END_POSE = Pose(
     position=np.array([0, 0, 0]),
     orientation=Quaternion(axis=[1.0, 0.0, 0.0], degrees=90),
+    gamepad_axes=np.array([0, 0]),
 )
 CURRENT_DRAG_POSE = Pose(
     position=np.array([0, 0, 0]),
     orientation=Quaternion(axis=[1.0, 0.0, 0.0], degrees=90),
+    gamepad_axes=np.array([0, 0]),
 )
 
 
@@ -122,11 +129,12 @@ def report_inner(data):
     pose = pose_from_webxr(
         data["position"],
         data["orientation"],
+        data.get("gamepadAxes", []),
     )
     if data.get("dragStartPosition") and data.get("dragStartOrientation"):
         CURRENTLY_DRAGGING = True
         drag_start_pose = pose_from_webxr(
-            data["dragStartPosition"], data["dragStartOrientation"]
+            data["dragStartPosition"], data["dragStartOrientation"], data["dragStartGamepadAxes"],
         )
 
         CURRENT_DRAG_POSE = Pose(
@@ -134,12 +142,18 @@ def report_inner(data):
             pose.orientation
             * drag_start_pose.orientation.conjugate
             * PREVIOUS_DRAG_END_POSE.orientation,
+            PREVIOUS_DRAG_END_POSE.gamepad_axes - drag_start_pose.gamepad_axes + pose.gamepad_axes,
         )
         rr.log(
             "phone/drag",
             rr.Arrows3D(
                 origins=[CURRENT_DRAG_POSE.position],
                 vectors=[CURRENT_DRAG_POSE.orientation.rotate(SHORT_FORWARD_VECTOR)],
+                colors=[
+                    (1 + pose.gamepad_axes[0]) / 2,
+                    (1 + pose.gamepad_axes[1]) / 2,
+                    0,
+                ]
             ),
         )
     elif CURRENTLY_DRAGGING:
