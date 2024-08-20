@@ -19,6 +19,9 @@ import cv2
 from pyquaternion import Quaternion
 from pyngrok import ngrok
 from pymycobot import MyCobotSocket
+import requests
+from PIL import Image
+from io import BytesIO
 
 load_dotenv()
 SIXDOFONE_SHARED_SECRET = os.environ.get("SIXDOFONE_SHARED_SECRET")
@@ -217,7 +220,33 @@ def report_inner(data):
     if ret:
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         rr.log("webcam", rr.Image(rgb))
+    
+    mjpeg_url = os.environ.get("MJPEG_URL")
+    if mjpeg_url:
+        rr.log(
+            "robot/webcam",
+            rr.ImageEncoded(
+                contents=get_mjpeg_frame(mjpeg_url),
+                format="JPEG",
+            ),
+        )
 
+def get_mjpeg_frame(url: str) -> Image:
+    response = requests.get(url, stream=True)
+
+    # Iterate over the response content to find the first frame
+    byte_data = b""
+    for chunk in response.iter_content(chunk_size=1024):
+        byte_data += chunk
+        # MJPEG frames start with the JPEG SOI (Start of Image) marker: 0xffd8
+        if b'\xff\xd8' in byte_data and b'\xff\xd9' in byte_data:
+            # Find the start and end of the JPEG frame
+            start = byte_data.index(b'\xff\xd8')
+            end = byte_data.index(b'\xff\xd9') + 2
+            jpeg_data = byte_data[start:end]
+            break
+
+    return jpeg_data
 
 if __name__ == "__main__":
 
