@@ -5,4 +5,5 @@ rerun-sdk==0.17.0
 opencv-python==4.*
 pyquaternion==0.9.*
 pyngrok==7.*
-python-dotenv=1.*
+python-dotenv==1.*
+pymycobot==3.*
