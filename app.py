@@ -4,6 +4,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 import subprocess
+from time import sleep
 from typing import Literal
 import os
 import sys
@@ -17,6 +18,7 @@ import numpy.typing as npt
 import cv2
 from pyquaternion import Quaternion
 from pyngrok import ngrok
+from pymycobot import MyCobotSocket
 
 load_dotenv()
 SIXDOFONE_SHARED_SECRET = os.environ.get("SIXDOFONE_SHARED_SECRET")
@@ -80,6 +82,35 @@ CURRENT_DRAG_POSE = Pose(
     gamepad_axes=np.array([0, 0]),
 )
 
+def pose_to_coord_offset(pose: Pose) -> npt.NDArray[np.float64]:
+    yaw, pitch, roll = pose.orientation.yaw_pitch_roll
+    print(f"{yaw=}, {pitch=}, {roll=}")
+    return np.array([
+            # west
+            (100 * -CURRENT_DRAG_POSE.position[1]),
+            # south
+            (100 * CURRENT_DRAG_POSE.position[0]),
+            # up
+            (100 * CURRENT_DRAG_POSE.position[2]),
+            # clockwise around northeast-southwest axis?
+            np.degrees(yaw),
+            # clockwise around northwest-southeast axis?
+            np.degrees(roll),
+            # anticlockwise around vertical axis
+            np.degrees(pitch),
+    ])
+
+# FIXME: put this in .env or something?
+NEUTRAL_COORDS = np.array([
+    210, # west
+    -40, # south
+    180, # up
+    -180, # clockwise around northeast-southwest axis?
+    0, # clockwise around northwest-southeast axis?
+    -45, # -225, # anticlockwise around vertical axis
+], dtype="float64") - pose_to_coord_offset(CURRENT_DRAG_POSE)
+
+print(f"{NEUTRAL_COORDS=}")
 
 # Route to serve the HTML file
 @app.route("/")
@@ -124,7 +155,7 @@ def report_inner(data):
     # FIXME: add some types to this mess.
     data = request.json
 
-    print(f"got: {data}")
+    # print(f"got: {data}")
 
     pose = pose_from_webxr(
         data["position"],
@@ -156,6 +187,19 @@ def report_inner(data):
                 ]
             ),
         )
+        desired_coords = NEUTRAL_COORDS + pose_to_coord_offset(CURRENT_DRAG_POSE)
+
+        MYCOBOT.send_coords(desired_coords, mode=1, speed=20)
+        print(f"desired_coords={[f'{coord:.2f}' for coord in desired_coords]}")
+        # Currently unplugged, so I can't really test it.
+        MYCOBOT.set_gripper_value(int((1 + pose.gamepad_axes[0]) * 45), 20)
+        actual_coords = MYCOBOT.get_coords()
+        if actual_coords is not None:
+            # The robot most often returns None here, which is quite frustrating.
+            # It seems to depend on what commands were recently sent or something?
+            print(f"actual_coords={[f'{coord:.2f}' for coord in actual_coords]}")
+
+
     elif CURRENTLY_DRAGGING:
         CURRENTLY_DRAGGING = False
         PREVIOUS_DRAG_END_POSE = CURRENT_DRAG_POSE
@@ -226,6 +270,20 @@ if __name__ == "__main__":
         except:
             pass
 
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        print(f"connecting to {(os.environ.get("MYCOBOT_HOST"), int(os.environ.get("MYCOBOT_PORT", 9000)))}")
+        MYCOBOT = MyCobotSocket(os.environ.get("MYCOBOT_HOST"), int(os.environ.get("MYCOBOT_PORT", 9000)))
+        # MYCOBOT.release_all_servos()
+        # sleep(1)
+        # MYCOBOT.power_off()
+        # sleep(1)
+        # MYCOBOT.power_on()
+        print(MYCOBOT.get_angles())
+
+        MYCOBOT.send_coords(NEUTRAL_COORDS + pose_to_coord_offset(CURRENT_DRAG_POSE), 20)
+
     rr.init("sixdofone", spawn=True)
     CAP = cv2.VideoCapture(0)
+
+
     app.run(host="0.0.0.0", port=8000, debug=True)
