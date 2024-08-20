@@ -1,3 +1,17 @@
+#!/usr/bin/env uv run
+# /// script
+# requires-python = ">=3.12"
+# dependencies = [
+#     "flask==3.*",
+#     "rerun-sdk==0.17.0",
+#     "opencv-python==4.*",
+#     "pyquaternion==0.9.*",
+#     "pyngrok==7.*",
+#     "python-dotenv==1.*",
+#     "pymycobot==3.*",
+#     "requests==2.*",
+# ]
+# ///
 import hashlib
 import hmac
 import json

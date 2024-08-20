@@ -12,6 +12,12 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+or just install uv and let it manage everything else just-in-time.
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
 
 ### Get HTTPS working
 <details>
@@ -68,9 +74,17 @@ Also set USE_NGROK or USE_TAILSCALE to something nonempty, to pick one of them t
 
 Inside the python virtual environment, run:
 
-```
+```bash
 python app.py
 ```
+
+or if you are using uv, just run
+
+```bash
+./app.py
+```
+
+and it will manage the virtualenv and dependencies for you.
 
 This will start the server on http port 8000, which tailscale will expose as https://yourhostname.your-tailnet-domain.ts.net/.
 
