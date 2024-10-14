@@ -1,6 +1,6 @@
 # SixDoFone
 
-This is a python app for 
+This is a python app for teleoperating a robot arm using the WebXR capabilities on your phone.
 
 ## Setup
 
